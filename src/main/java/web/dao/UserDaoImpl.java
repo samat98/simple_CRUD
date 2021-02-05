@@ -6,14 +6,12 @@ import org.springframework.stereotype.Repository;
 import web.model.User;
 
 import javax.persistence.EntityManager;
-import javax.persistence.EntityTransaction;
 import java.util.List;
 
 @Repository
 public class UserDaoImpl implements UserDao {
     private LocalContainerEntityManagerFactoryBean entityManagerFactory;
     private EntityManager entityManager;
-    private EntityTransaction transaction;
 
     @Autowired
     public void setEntityManager(LocalContainerEntityManagerFactoryBean entityManagerFactory) {
@@ -24,19 +22,13 @@ public class UserDaoImpl implements UserDao {
         entityManager = entityManagerFactory
                 .getNativeEntityManagerFactory()
                 .createEntityManager();
-        transaction = entityManager.getTransaction();
-        transaction.begin();
     }
 
     @Override
     public void saveUser(User user) {
         prepareEntityManager();
-        try {
-            entityManager.persist(user);
-        } catch (Exception e) {
-            transaction.rollback();
-        }
-        transaction.commit();
+        entityManager.persist(user);
+        entityManager.close();
     }
 
     @Override
@@ -45,32 +37,32 @@ public class UserDaoImpl implements UserDao {
         User user1 = entityManager.find(User.class, user.getId());
         user1.setName(user.getName());
         user1.setLastName(user.getLastName());
-        transaction.commit();
+        entityManager.close();
     }
 
     @Override
     public User findUser(Long id) {
         prepareEntityManager();
-        User user = entityManager.find(User.class, new Long(id));
+        User user = entityManager.find(User.class, id);
         entityManager.detach(user);
-        transaction.commit();
+        entityManager.close();
         return user;
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public List<User> listUsers() {
-        entityManager = entityManagerFactory
-                .getNativeEntityManagerFactory()
-                .createEntityManager();
-        return (List<User>) entityManager.createQuery("SELECT u FROM User u").getResultList();
+        prepareEntityManager();
+        List<User> users = (List<User>) entityManager.createQuery("SELECT u FROM User u").getResultList();
+        entityManager.close();
+        return users;
     }
 
     @Override
     public void deleteUser(Long id) {
         prepareEntityManager();
-        User user = entityManager.find(User.class, new Long(id));
+        User user = entityManager.find(User.class, id);
         entityManager.remove(user);
-        transaction.commit();
+        entityManager.close();
     }
 }
